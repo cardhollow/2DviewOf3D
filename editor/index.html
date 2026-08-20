@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Platformer 3D Editor</title>
+<script src="./js/three.js"></script>
+<script src="./js/EditorControls.js"></script>
+<script src="./js/TransformControls.js"></script>
+
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div id="app">
+    <div id="topbar">
+        <div id="title">PLATFORMER 3D</div>
+
+        <button onclick="addBox()">Box</button>
+
+        <div class="separator"></div>
+
+        <button onclick="duplicateSelected()">Clone</button>
+        <button onclick="deleteSelected()">Delete</button>
+
+        <div class="separator"></div>
+
+        <button id="translateButton" class="active" onclick="setMode('translate')">Move</button>
+        <button id="rotateButton" onclick="setMode('rotate')">Rotate</button>
+        <button id="scaleButton" onclick="setMode('scale')">Scale</button>
+
+        <div class="separator"></div>
+
+        <button onclick="undo()">Undo</button>
+        <button onclick="redo()">Redo</button>
+
+        <div class="separator"></div>
+
+        <button onclick="saveScene()">Save</button>
+        <button onclick="loadScene()">Load</button>
+        <button onclick="importScene()">Import</button>
+
+        <div class="menu" id="exportMenu">
+            <button class="menu-title" id="exportButton" type="button">Export ▾</button>
+
+            <div class="menu-options" id="exportOptions">
+                <button class="menu-option" onclick="exportGeometry()">Export Geometry</button>
+                <button class="menu-option" onclick="exportObject()">Export Object</button>
+                <button class="menu-option" onclick="exportSceneJSON()">Export Scene</button>
+                <button class="menu-option" onclick="exportHRMP()">Export HRMP</button>
+                <button class="menu-option" onclick="exportRBP()">Export RBP</button>
+
+                <div class="menu-rule"></div>
+                <button class="menu-option" onclick="exportOBJ()">Export OBJ</button>
+                <button class="menu-option" onclick="exportSTL()">Export STL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="workspace">
+        <div id="left">
+            <div class="panel-title">Scene</div>
+            <div id="objects"></div>
+            <div class="tool-section">
+                <button onclick="addBox()">+ Platform</button>
+                <button onclick="clearSelection()">Deselect</button>
+            </div>
+        </div>
+
+        <div id="center">
+            <div id="viewport"></div>
+
+            
+
+            <div id="status">Ready</div>
+
+            <div id="mobileControls">
+                <button class="mobile-button" id="camUp">▲</button>
+                <button class="mobile-button" id="camLeft">◀</button>
+                <button class="mobile-button" id="camForward">●</button>
+                <button class="mobile-button" id="camRight">▶</button>
+                <button class="mobile-button" id="camDown">▼</button>
+            </div>
+
+            <div id="mobileMode">
+                <button onclick="setMode('translate')">Move</button>
+                <button onclick="setMode('rotate')">Rotate</button>
+                <button onclick="setMode('scale')">Scale</button>
+            </div>
+        </div>
+
+        <div id="right">
+            <div class="panel-title">Inspector</div>
+
+            <div class="tool-section">
+                <div class="field">
+                    <label>Name</label>
+                    <input id="nameInput" type="text" placeholder="Object name">
+                </div>
+
+                <div class="field">
+                    <label>Tags</label>
+                    <input id="tagsInput" type="text" placeholder="Spawn, Exit, Enemy">
+                </div>
+
+                <div class="field">
+                    <label>Position</label>
+                    <div class="xyz">
+                        <input id="px" type="number" step="0.1">
+                        <input id="py" type="number" step="0.1">
+                        <input id="pz" type="number" step="0.1">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Rotation</label>
+                    <div class="xyz">
+                        <input id="rx" type="number" step="1">
+                        <input id="ry" type="number" step="1">
+                        <input id="rz" type="number" step="1">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Scale</label>
+                    <div class="xyz">
+                        <input id="sx" type="number" step="0.1">
+                        <input id="sy" type="number" step="0.1">
+                        <input id="sz" type="number" step="0.1">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Color</label>
+                    <div class="color-row">
+                        <input id="colorInput" type="color" value="#ffffff">
+                        <input id="colorText" type="text" pattern="^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$" value="#ffffff">
+                        <button onclick="applyColor()">Apply</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Geometry</label>
+                    <select id="geometrySelect" onchange="changeGeometry()">
+                        <option value="box">Box</option>
+                        <option value="sphere">Sphere</option>
+                        <option value="cylinder">Cylinder</option>
+                        <option value="plane">Plane</option>
+                        <option value="cone">Cone</option>
+                        <option value="torus">Torus</option>
+                    </select>
+                </div>
+
+                <button onclick="applyInspector()">Apply Transform</button>
+            </div>
+
+            <div class="panel-title">Object</div>
+
+            <div class="tool-section">
+                <div id="objectInfo">Nothing selected.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input
+    id="fileInput"
+    type="file"
+    accept=".json,.hrmp.json,.rbp,application/octet-stream,.obj,.stl"
+    style="display:none"
+>
+
+
+<script src="./js/editor-core.js"></script>
+<script src="./js/editor-scene.js"></script>
+<script src="./js/editor-selection.js"></script>
+<script src="./js/editor-input.js"></script>
+<script src="./js/editor-io.js"></script>
+<script src="./js/editor-import.js"></script>
+<script src="./js/editor-export.js"></script>
+<script src="./js/editor-main.js"></script>
+</body>
+</html>
