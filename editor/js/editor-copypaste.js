@@ -97,16 +97,13 @@ function readVector3(reader){
 }
 
 function getTags(object){
-    return object.userData&&Array.isArray(object.userData.tags)
-        ?object.userData.tags
-        :[];
+    return object.userData&&Array.isArray(object.userData.tags)?object.userData.tags:[];
 }
 
 function getColor(object){
     if(object.material&&object.material.color){
         return object.material.color.getHex();
     }
-
     return 0xFFFFFF;
 }
 
@@ -153,7 +150,6 @@ function writeGeometry(writer,geometry){
 
     for(var f=0;f<geometry.faces.length;f++){
         var face=geometry.faces[f];
-
         writer.writeUint32(face.a);
         writer.writeUint32(face.b);
         writer.writeUint32(face.c);
@@ -249,12 +245,7 @@ function encodeObjects(objects){
 function decodeObjects(binary){
     var reader=new BinaryReader(binary);
 
-    if(
-        reader.readUint8()!==MAGIC_0||
-        reader.readUint8()!==MAGIC_1||
-        reader.readUint8()!==MAGIC_2||
-        reader.readUint8()!==MAGIC_3
-    ){
+    if(reader.readUint8()!==MAGIC_0||reader.readUint8()!==MAGIC_1||reader.readUint8()!==MAGIC_2||reader.readUint8()!==MAGIC_3){
         throw new Error("Invalid editor clipboard");
     }
 
@@ -315,10 +306,7 @@ function createClipboardObject(data){
     var material;
 
     if(typeof createMaterial==="function"){
-        material=createMaterial(
-            "#" +
-            data.material.color.toString(16).padStart(6,"0")
-        );
+        material=createMaterial("#"+data.material.color.toString(16).padStart(6,"0"));
     }else{
         material=new THREE.MeshBasicMaterial({
             color:data.material.color
@@ -332,9 +320,7 @@ function createClipboardObject(data){
     }
 
     if(material.color){
-        material.color.setHex(
-            data.material.color
-        );
+        material.color.setHex(data.material.color);
     }
 
     material.opacity=data.material.opacity;
@@ -342,13 +328,9 @@ function createClipboardObject(data){
     material.wireframe=data.material.wireframe;
     material.visible=data.material.visible;
 
-    var object=new THREE.Mesh(
-        data.geometry,
-        material
-    );
+    var object=new THREE.Mesh(data.geometry,material);
 
     object.name=data.name+"_Copy";
-
     object.position.copy(data.position);
     object.rotation.copy(data.rotation);
     object.scale.copy(data.scale);
@@ -371,22 +353,13 @@ function copySelectedObjects(){
     }
 
     try{
-        internalClipboard=encodeObjects(
-            selectedObjects
-        );
+        internalClipboard=encodeObjects(selectedObjects);
 
         if(typeof statusElement!=="undefined"){
-            statusElement.textContent=
-                selectedObjects.length+
-                " object"+
-                (selectedObjects.length===1?"":"s")+
-                " copied";
+            statusElement.textContent=selectedObjects.length+" object"+(selectedObjects.length===1?"":"s")+" copied";
         }
     }catch(error){
-        console.error(
-            "Copy objects error:",
-            error
-        );
+        console.error("Copy objects error:",error);
 
         if(typeof statusElement!=="undefined"){
             statusElement.textContent="Copy failed";
@@ -403,9 +376,7 @@ function pasteClipboardObjects(){
     }
 
     try{
-        var data=decodeObjects(
-            internalClipboard
-        );
+        var data=decodeObjects(internalClipboard);
 
         if(!data.length)return;
 
@@ -413,88 +384,71 @@ function pasteClipboardObjects(){
         var pasted=[];
 
         for(var i=0;i<data.length;i++){
-            var object=createClipboardObject(
-                data[i]
-            );
+            var object=createClipboardObject(data[i]);
 
             object.position.x+=1;
-
             object.userData.editorObject=true;
 
             scene.add(object);
-
             objectCounter++;
-
             pasted.push(object);
         }
 
-        setSelectedObjects(
-            pasted,
-            pasted[pasted.length-1]
-        );
-
-        selectionAnchor=
-            pasted[pasted.length-1];
+        setSelectedObjects(pasted,pasted[pasted.length-1]);
+        selectionAnchor=pasted[pasted.length-1];
 
         recordModification(before);
         saveLocal();
 
-        statusElement.textContent=
-            data.length+
-            " object"+
-            (data.length===1?"":"s")+
-            " pasted";
+        statusElement.textContent=data.length+" object"+(data.length===1?"":"s")+" pasted";
     }catch(error){
-        console.error(
-            "Paste objects error:",
-            error
-        );
+        console.error("Paste objects error:",error);
 
-        statusElement.textContent=
-            "Paste failed";
+        statusElement.textContent="Paste failed";
 
-        alert(
-            "Could not paste objects:\n"+
-            error.message
-        );
+        alert("Could not paste objects:\n"+error.message);
     }
 }
 
+function isTypingTarget(target){
+    if(!target){
+        return false;
+    }
+
+    var tag=String(target.tagName||"").toLowerCase();
+
+    if(tag==="input"||tag==="textarea"||tag==="select"||tag==="option"||target.isContentEditable){
+        return true;
+    }
+
+    if(typeof target.closest==="function"&&target.closest("input,textarea,select,[contenteditable='true']")){
+        return true;
+    }
+
+    return false;
+}
+
 function handleCopyPasteKeyDown(event){
-    var target=event.target;
-
-    if(target){
-        var tag=String(
-            target.tagName||""
-        ).toLowerCase();
-
-        if(
-            tag==="input"||
-            tag==="textarea"||
-            tag==="select"||
-            target.isContentEditable
-        ){
-            return;
-        }
+    if(isTypingTarget(event.target)){
+        return;
     }
 
     if(!(event.ctrlKey||event.metaKey)){
         return;
     }
 
-    var key=String(
-        event.key||""
-    ).toLowerCase();
+    var hasSelection=typeof selectedObjects!=="undefined"&&selectedObjects.length>0;
+
+    if(!hasSelection){
+        return;
+    }
+
+    var key=String(event.key||"").toLowerCase();
 
     if(key==="c"){
-        if(
-            typeof selectedObjects!=="undefined"&&
-            selectedObjects.length
-        ){
-            event.preventDefault();
-            event.stopPropagation();
-            copySelectedObjects();
-        }
+        event.preventDefault();
+        event.stopPropagation();
+        copySelectedObjects();
         return;
     }
 
@@ -505,35 +459,22 @@ function handleCopyPasteKeyDown(event){
     }
 }
 
-document.addEventListener(
-    "keydown",
-    handleCopyPasteKeyDown,
-    false
-);
+document.addEventListener("keydown",handleCopyPasteKeyDown,false);
 
-window.copySelectedObjects=
-    copySelectedObjects;
+window.copySelectedObjects=copySelectedObjects;
 
-window.pasteClipboardObjects=
-    pasteClipboardObjects;
+window.pasteClipboardObjects=pasteClipboardObjects;
 
-window.encodeSelectedObjectsBinary=
-    function(){
-        if(
-            typeof selectedObjects==="undefined"||
-            !selectedObjects.length
-        ){
-            return new Uint8Array(0);
-        }
+window.encodeSelectedObjectsBinary=function(){
+    if(typeof selectedObjects==="undefined"||!selectedObjects.length){
+        return new Uint8Array(0);
+    }
 
-        return encodeObjects(
-            selectedObjects
-        );
-    };
+    return encodeObjects(selectedObjects);
+};
 
-window.decodeSelectedObjectsBinary=
-    function(binary){
-        return decodeObjects(binary);
-    };
+window.decodeSelectedObjectsBinary=function(binary){
+    return decodeObjects(binary);
+};
 
 })();
