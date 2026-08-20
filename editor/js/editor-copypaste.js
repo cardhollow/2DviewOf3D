@@ -5,7 +5,7 @@ var MAGIC_0=0x50;
 var MAGIC_1=0x4F;
 var MAGIC_2=0x42;
 var MAGIC_3=0x43;
-var VERSION=2;
+var VERSION=4;
 var CLIPBOARD_TYPE="web application/x-platformer-editor-objects";
 
 function BinaryWriter(){
@@ -30,9 +30,14 @@ BinaryWriter.prototype.writeFloat32=function(value){
 };
 
 BinaryWriter.prototype.writeString=function(value){
-    var bytes=new TextEncoder().encode(String(value||""));
+    var bytes=new TextEncoder().encode(String(value==null?"":value));
     this.writeUint32(bytes.length);
     for(var i=0;i<bytes.length;i++)this.data.push(bytes[i]);
+};
+
+BinaryWriter.prototype.writeJSON=function(value){
+    var text=JSON.stringify(value);
+    this.writeString(text);
 };
 
 BinaryWriter.prototype.toUint8Array=function(){
@@ -82,6 +87,12 @@ BinaryReader.prototype.readString=function(){
     return new TextDecoder().decode(bytes);
 };
 
+BinaryReader.prototype.readJSON=function(){
+    var text=this.readString();
+    if(!text)return {};
+    return JSON.parse(text);
+};
+
 function writeVector3(writer,v){
     writer.writeFloat32(v.x);
     writer.writeFloat32(v.y);
@@ -89,37 +100,89 @@ function writeVector3(writer,v){
 }
 
 function readVector3(reader){
-    return new THREE.Vector3(reader.readFloat32(),reader.readFloat32(),reader.readFloat32());
+    return new THREE.Vector3(
+        reader.readFloat32(),
+        reader.readFloat32(),
+        reader.readFloat32()
+    );
 }
 
 function getTags(object){
     return object.userData&&Array.isArray(object.userData.tags)?object.userData.tags:[];
 }
 
+function getSerializableUserData(object){
+    var source=object.userData||{};
+    var result={};
+
+    for(var key in source){
+        if(!source.hasOwnProperty(key))continue;
+
+        var value=source[key];
+
+        try{
+            JSON.stringify(value);
+            result[key]=value;
+        }catch(error){}
+    }
+
+    result.editorObject=true;
+
+    if(!result.type){
+        result.type="object";
+    }
+
+    return result;
+}
+
 function getMaterialData(object){
     var material=object.material;
 
+    if(Array.isArray(material)){
+        material=material[0];
+    }
+
     if(!material){
         return {
+            type:"",
             color:0xFFFFFF,
             opacity:1,
             transparent:false,
             wireframe:false,
-            visible:true
+            visible:true,
+            side:0,
+            roughness:1,
+            metalness:0,
+            shininess:30,
+            flatShading:false,
+            depthWrite:true,
+            depthTest:true,
+            alphaTest:0
         };
     }
 
     return {
+        type:material.type||"",
         color:material.color?material.color.getHex():0xFFFFFF,
         opacity:typeof material.opacity==="number"?material.opacity:1,
         transparent:!!material.transparent,
         wireframe:!!material.wireframe,
-        visible:material.visible!==false
+        visible:material.visible!==false,
+        side:typeof material.side==="number"?material.side:0,
+        roughness:typeof material.roughness==="number"?material.roughness:1,
+        metalness:typeof material.metalness==="number"?material.metalness:0,
+        shininess:typeof material.shininess==="number"?material.shininess:30,
+        flatShading:!!material.flatShading,
+        depthWrite:material.depthWrite!==false,
+        depthTest:material.depthTest!==false,
+        alphaTest:typeof material.alphaTest==="number"?material.alphaTest:0
     };
 }
 
 function writeGeometry(writer,geometry){
     if(!geometry){
+        writer.writeUint32(0);
+        writer.writeUint32(0);
         writer.writeUint32(0);
         writer.writeUint32(0);
         return;
@@ -139,14 +202,59 @@ function writeGeometry(writer,geometry){
 
     for(var f=0;f<geometry.faces.length;f++){
         var face=geometry.faces[f];
+
         writer.writeUint32(face.a);
         writer.writeUint32(face.b);
         writer.writeUint32(face.c);
+
+        writeVector3(writer,face.normal||new THREE.Vector3());
+
+        writer.writeUint8(
+            typeof face.materialIndex==="number"
+                ?face.materialIndex
+                :0
+        );
+
+        if(face.color){
+            writer.writeUint8(1);
+            writer.writeUint32(face.color.getHex());
+        }else{
+            writer.writeUint8(0);
+            writer.writeUint32(0xFFFFFF);
+        }
+    }
+
+    var uvs=geometry.faceVertexUvs&&geometry.faceVertexUvs[0]?geometry.faceVertexUvs[0]:[];
+
+    writer.writeUint32(uvs.length);
+
+    for(var u=0;u<uvs.length;u++){
+        var uvFace=uvs[u]||[];
+
+        for(var p=0;p<3;p++){
+            var uv=uvFace[p]||new THREE.Vector2();
+
+            writer.writeFloat32(uv.x);
+            writer.writeFloat32(uv.y);
+        }
+    }
+
+    var colors=geometry.colors||[];
+
+    writer.writeUint32(colors.length);
+
+    for(var c=0;c<colors.length;c++){
+        writer.writeUint32(
+            colors[c]&&colors[c].getHex
+                ?colors[c].getHex()
+                :0xFFFFFF
+        );
     }
 }
 
 function readGeometry(reader){
     var geometry=new THREE.Geometry();
+
     var vertexCount=reader.readUint32();
 
     for(var i=0;i<vertexCount;i++){
@@ -156,13 +264,58 @@ function readGeometry(reader){
     var faceCount=reader.readUint32();
 
     for(var f=0;f<faceCount;f++){
-        geometry.faces.push(
-            new THREE.Face3(
-                reader.readUint32(),
-                reader.readUint32(),
-                reader.readUint32()
-            )
+        var face=new THREE.Face3(
+            reader.readUint32(),
+            reader.readUint32(),
+            reader.readUint32()
         );
+
+        face.normal=readVector3(reader);
+        face.materialIndex=reader.readUint8();
+
+        var hasColor=reader.readUint8();
+        var color=reader.readUint32();
+
+        if(hasColor){
+            face.color=new THREE.Color(color);
+        }
+
+        geometry.faces.push(face);
+    }
+
+    var uvCount=reader.readUint32();
+
+    geometry.faceVertexUvs[0]=[];
+
+    for(var u=0;u<uvCount;u++){
+        geometry.faceVertexUvs[0].push([
+            new THREE.Vector2(
+                reader.readFloat32(),
+                reader.readFloat32()
+            ),
+            new THREE.Vector2(
+                reader.readFloat32(),
+                reader.readFloat32()
+            ),
+            new THREE.Vector2(
+                reader.readFloat32(),
+                reader.readFloat32()
+            )
+        ]);
+    }
+
+    var colorCount=reader.readUint32();
+
+    if(colorCount){
+        geometry.colors=[];
+
+        for(var c=0;c<colorCount;c++){
+            geometry.colors.push(
+                new THREE.Color(
+                    reader.readUint32()
+                )
+            );
+        }
     }
 
     if(geometry.computeFaceNormals){
@@ -198,32 +351,19 @@ function encodeObjects(objects){
         var object=objects[i];
 
         writer.writeString(object.name||"Object");
-        writer.writeString(object.userData&&object.userData.type?object.userData.type:"object");
-
-        var tags=getTags(object);
-
-        writer.writeUint32(tags.length);
-
-        for(var t=0;t<tags.length;t++){
-            writer.writeString(tags[t]);
-        }
+        writer.writeString(object.type||object.userData&&object.userData.type||"object");
+        writer.writeJSON(getSerializableUserData(object));
 
         writeVector3(writer,object.position);
 
         writer.writeFloat32(object.rotation.x);
         writer.writeFloat32(object.rotation.y);
         writer.writeFloat32(object.rotation.z);
-        writer.writeFloat32(0);
+        writer.writeString(object.rotation.order||"XYZ");
 
         writeVector3(writer,object.scale);
 
-        var material=getMaterialData(object);
-
-        writer.writeUint32(material.color);
-        writer.writeFloat32(material.opacity);
-        writer.writeUint8(material.transparent?1:0);
-        writer.writeUint8(material.wireframe?1:0);
-        writer.writeUint8(material.visible?1:0);
+        writer.writeJSON(getMaterialData(object));
 
         writeGeometry(writer,object.geometry);
     }
@@ -234,7 +374,12 @@ function encodeObjects(objects){
 function decodeObjects(binary){
     var reader=new BinaryReader(binary);
 
-    if(reader.readUint8()!==MAGIC_0||reader.readUint8()!==MAGIC_1||reader.readUint8()!==MAGIC_2||reader.readUint8()!==MAGIC_3){
+    if(
+        reader.readUint8()!==MAGIC_0||
+        reader.readUint8()!==MAGIC_1||
+        reader.readUint8()!==MAGIC_2||
+        reader.readUint8()!==MAGIC_3
+    ){
         throw new Error("Invalid editor clipboard");
     }
 
@@ -248,43 +393,37 @@ function decodeObjects(binary){
     for(var i=0;i<count;i++){
         var name=reader.readString();
         var type=reader.readString();
-
-        var tagCount=reader.readUint32();
-        var tags=[];
-
-        for(var t=0;t<tagCount;t++){
-            tags.push(reader.readString());
-        }
+        var userData=reader.readJSON();
 
         var position=readVector3(reader);
 
         var rotation=new THREE.Euler(
             reader.readFloat32(),
             reader.readFloat32(),
-            reader.readFloat32()
+            reader.readFloat32(),
+            reader.readString()
         );
 
-        reader.readFloat32();
-
         var scale=readVector3(reader);
+        var material=reader.readJSON();
+        var geometry=readGeometry(reader);
 
-        var material={
-            color:reader.readUint32(),
-            opacity:reader.readFloat32(),
-            transparent:!!reader.readUint8(),
-            wireframe:!!reader.readUint8(),
-            visible:!!reader.readUint8()
-        };
+        userData=userData||{};
+        userData.editorObject=true;
+
+        if(!userData.type){
+            userData.type=type||"object";
+        }
 
         objects.push({
             name:name,
             type:type,
-            tags:tags,
+            userData:userData,
             position:position,
             rotation:rotation,
             scale:scale,
             material:material,
-            geometry:readGeometry(reader)
+            geometry:geometry
         });
     }
 
@@ -292,19 +431,42 @@ function decodeObjects(binary){
 }
 
 function createClipboardObject(data){
-    var material;
+    var material=null;
 
     if(typeof createMaterial==="function"){
-        material=createMaterial("#"+data.material.color.toString(16).padStart(6,"0"));
-    }else{
-        material=new THREE.MeshBasicMaterial({
-            color:data.material.color
-        });
+        material=createMaterial(
+            "#"+
+            data.material.color.toString(16).padStart(6,"0")
+        );
     }
 
     if(!material){
-        material=new THREE.MeshBasicMaterial({
-            color:data.material.color
+        var MaterialClass=THREE.MeshStandardMaterial;
+
+        if(
+            data.material.type==="MeshPhongMaterial"&&
+            typeof THREE.MeshPhongMaterial==="function"
+        ){
+            MaterialClass=THREE.MeshPhongMaterial;
+        }else if(
+            data.material.type==="MeshLambertMaterial"&&
+            typeof THREE.MeshLambertMaterial==="function"
+        ){
+            MaterialClass=THREE.MeshLambertMaterial;
+        }else if(
+            data.material.type==="MeshBasicMaterial"&&
+            typeof THREE.MeshBasicMaterial==="function"
+        ){
+            MaterialClass=THREE.MeshBasicMaterial;
+        }
+
+        material=new MaterialClass({
+            color:data.material.color,
+            opacity:data.material.opacity,
+            transparent:data.material.transparent,
+            wireframe:data.material.wireframe,
+            visible:data.material.visible,
+            side:data.material.side
         });
     }
 
@@ -317,18 +479,47 @@ function createClipboardObject(data){
     material.wireframe=data.material.wireframe;
     material.visible=data.material.visible;
 
-    var object=new THREE.Mesh(data.geometry,material);
+    if(typeof material.side==="number"){
+        material.side=data.material.side;
+    }
+
+    if("roughness" in material){
+        material.roughness=data.material.roughness;
+    }
+
+    if("metalness" in material){
+        material.metalness=data.material.metalness;
+    }
+
+    if("shininess" in material){
+        material.shininess=data.material.shininess;
+    }
+
+    if("flatShading" in material){
+        material.flatShading=data.material.flatShading;
+    }
+
+    material.depthWrite=data.material.depthWrite;
+    material.depthTest=data.material.depthTest;
+    material.alphaTest=data.material.alphaTest;
+
+    var object=new THREE.Mesh(
+        data.geometry,
+        material
+    );
 
     object.name=data.name+"_Copy";
+
     object.position.copy(data.position);
     object.rotation.copy(data.rotation);
     object.scale.copy(data.scale);
 
-    object.userData={
-        editorObject:true,
-        type:data.type,
-        tags:data.tags.slice()
-    };
+    object.userData=data.userData||{};
+    object.userData.editorObject=true;
+
+    if(!object.userData.type){
+        object.userData.type=data.type||"object";
+    }
 
     return object;
 }
@@ -349,14 +540,18 @@ async function copySelectedObjects(){
         var binary=encodeObjects(selectedObjects);
         var blob=new Blob([binary],{type:CLIPBOARD_TYPE});
 
-        var item=new ClipboardItem({
-            [CLIPBOARD_TYPE]:blob
-        });
-
-        await navigator.clipboard.write([item]);
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                [CLIPBOARD_TYPE]:blob
+            })
+        ]);
 
         if(typeof statusElement!=="undefined"){
-            statusElement.textContent=selectedObjects.length+" object"+(selectedObjects.length===1?"":"s")+" copied";
+            statusElement.textContent=
+                selectedObjects.length+
+                " object"+
+                (selectedObjects.length===1?"":"s")+
+                " copied";
         }
     }catch(error){
         console.error("Copy objects error:",error);
@@ -365,7 +560,10 @@ async function copySelectedObjects(){
             statusElement.textContent="External copy failed";
         }
 
-        alert("Could not copy objects:\n"+error.message);
+        alert(
+            "Could not copy objects:\n"+
+            error.message
+        );
     }
 }
 
@@ -386,7 +584,9 @@ async function pasteClipboardObjects(){
 
             if(item.types.indexOf(CLIPBOARD_TYPE)!==-1){
                 var blob=await item.getType(CLIPBOARD_TYPE);
-                binary=new Uint8Array(await blob.arrayBuffer());
+                binary=new Uint8Array(
+                    await blob.arrayBuffer()
+                );
                 break;
             }
         }
@@ -411,6 +611,7 @@ async function pasteClipboardObjects(){
             var object=createClipboardObject(data[j]);
 
             object.position.x+=1;
+            object.userData=object.userData||{};
             object.userData.editorObject=true;
 
             scene.add(object);
@@ -428,7 +629,11 @@ async function pasteClipboardObjects(){
         recordModification(before);
         saveLocal();
 
-        statusElement.textContent=data.length+" object"+(data.length===1?"":"s")+" pasted";
+        statusElement.textContent=
+            data.length+
+            " object"+
+            (data.length===1?"":"s")+
+            " pasted";
     }catch(error){
         console.error("Paste objects error:",error);
 
@@ -436,7 +641,10 @@ async function pasteClipboardObjects(){
             statusElement.textContent="External paste failed";
         }
 
-        alert("Could not paste objects:\n"+error.message);
+        alert(
+            "Could not paste objects:\n"+
+            error.message
+        );
     }
 }
 
@@ -447,11 +655,22 @@ function isTypingTarget(target){
 
     var tag=String(target.tagName||"").toLowerCase();
 
-    if(tag==="input"||tag==="textarea"||tag==="select"||tag==="option"||target.isContentEditable){
+    if(
+        tag==="input"||
+        tag==="textarea"||
+        tag==="select"||
+        tag==="option"||
+        target.isContentEditable
+    ){
         return true;
     }
 
-    if(typeof target.closest==="function"&&target.closest("input,textarea,select,[contenteditable='true']")){
+    if(
+        typeof target.closest==="function"&&
+        target.closest(
+            "input,textarea,select,[contenteditable='true']"
+        )
+    ){
         return true;
     }
 
@@ -467,8 +686,13 @@ function handleCopyPasteKeyDown(event){
         return;
     }
 
-    var hasSelection=typeof selectedObjects!=="undefined"&&selectedObjects.length>0;
-    var key=String(event.key||"").toLowerCase();
+    var hasSelection=
+        typeof selectedObjects!=="undefined"&&
+        selectedObjects.length>0;
+
+    var key=String(
+        event.key||""
+    ).toLowerCase();
 
     if(key==="c"&&hasSelection){
         event.preventDefault();
@@ -484,21 +708,32 @@ function handleCopyPasteKeyDown(event){
     }
 }
 
-document.addEventListener("keydown",handleCopyPasteKeyDown,false);
+document.addEventListener(
+    "keydown",
+    handleCopyPasteKeyDown,
+    false
+);
 
-window.copySelectedObjects=copySelectedObjects;
-window.pasteClipboardObjects=pasteClipboardObjects;
+window.copySelectedObjects=
+    copySelectedObjects;
 
-window.encodeSelectedObjectsBinary=function(){
-    if(typeof selectedObjects==="undefined"||!selectedObjects.length){
-        return new Uint8Array(0);
-    }
+window.pasteClipboardObjects=
+    pasteClipboardObjects;
 
-    return encodeObjects(selectedObjects);
-};
+window.encodeSelectedObjectsBinary=
+    function(){
+        if(typeof selectedObjects==="undefined"||!selectedObjects.length){
+            return new Uint8Array(0);
+        }
 
-window.decodeSelectedObjectsBinary=function(binary){
-    return decodeObjects(binary);
-};
+        return encodeObjects(
+            selectedObjects
+        );
+    };
+
+window.decodeSelectedObjectsBinary=
+    function(binary){
+        return decodeObjects(binary);
+    };
 
 })();
