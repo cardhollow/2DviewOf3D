@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>RBP Platformer</title>
+
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="main" class="menu">
+	<button onclick="scanLevels()">Play</button>
+	<button onclick="helpMenu()">Help</button>
+	<button onclick="openSettings()">Settings</button>
+</div>
+<div id="settingsmenu" class="menu"></div>
+<div id="helpModal"></div>
+<div id="levels"></div>
+
+<div id="game">
+    <canvas id="canvas"></canvas>
+    <div id="zInfo">Z: 0</div>
+    <button id="back">Levels</button>
+</div>
+
+<div id="loading">Loading...</div>
+
+<script src="./js/core.js"></script>
+<script src="./js/rbp.js"></script>
+<script src="./js/geometry.js"></script>
+<script src="./js/physics.js"></script>
+<script src="./js/render.js"></script>
+<script src="./js/main.js"></script>
+<script src="./js/levels.js"></script>
+<script src="./js/help.js"></script>
+</body>
+</html>

@@ -1,0 +1,662 @@
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #111;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.menu {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    gap: 10px;
+}
+
+.menu button {
+    width: 200px;
+    min-height: 70px;
+    border: 1px solid #444;
+    background: #242424;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#levels {
+    width: 100%;
+    height: 100%;
+    display: none;
+    grid-template-columns: repeat(auto-fill,minmax(110px,1fr));
+    align-content: start;
+    gap: 8px;
+    padding: 10px;
+    overflow-y: auto;
+    background: #181818;
+}
+
+.level {
+    min-height: 70px;
+    border: 1px solid #444;
+    background: #242424;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.level:hover {
+    background: #303030;
+}
+
+#game {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: #202020;
+}
+
+#canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #202020;
+    touch-action: none;
+}
+
+#zInfo {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    padding: 6px 8px;
+    background: rgba(0,0,0,.65);
+    border: 1px solid #444;
+    color: #bbb;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+#back {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    padding: 7px 10px;
+    background: #242424;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 3px;
+    cursor: pointer;
+    z-index: 5;
+}
+
+#loading {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    padding: 10px 14px;
+    background: rgba(0,0,0,.8);
+    border: 1px solid #444;
+    color: #bbb;
+    font-size: 12px;
+    display: none;
+    z-index: 20;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #111;
+    color: #fff;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+input,
+select {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button {
+    background: #242424;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 7px 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+button:hover {
+    background: #303030;
+}
+
+button.active {
+    background: #444;
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#topbar {
+    height: 48px;
+    min-height: 48px;
+    background: #181818;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 6px;
+    z-index: 20;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+#title {
+    font-weight: bold;
+    margin-right: 12px;
+    white-space: nowrap;
+}
+
+.separator {
+    width: 1px;
+    min-width: 1px;
+    height: 25px;
+    background: #444;
+    margin: 0 4px;
+}
+
+.menu {
+    position: static;
+}
+
+.menu-title {
+    display: block;
+}
+
+.menu-options {
+    display: none;
+    position: fixed;
+    min-width: 190px;
+    background: #202020;
+    border: 1px solid #444;
+    box-shadow: 0 6px 18px rgba(0,0,0,.45);
+    z-index: 99999;
+    padding: 4px 0;
+}
+
+.menu.open .menu-options {
+    display: block;
+}
+
+.menu-option {
+    display: block;
+    width: 100%;
+    padding: 9px 13px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+    color: #fff;
+}
+
+.menu-option:hover {
+    background: #383838;
+}
+
+.menu-rule {
+    height: 1px;
+    background: #3b3b3b;
+    margin: 4px 0;
+}
+
+#workspace {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+#left {
+    width: 190px;
+    min-width: 190px;
+    background: #181818;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+}
+
+#center {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    background: #202020;
+}
+
+#right {
+    width: 270px;
+    min-width: 270px;
+    background: #181818;
+    border-left: 1px solid #333;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+.panel-title {
+    padding: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #aaa;
+    border-bottom: 1px solid #333;
+}
+
+#objects {
+    flex: 1;
+    overflow-y: auto;
+    touch-action: pan-y;
+}
+
+.object-item {
+    padding: 9px 10px;
+    border-bottom: 1px solid #292929;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.object-item:hover {
+    background: #252525;
+}
+
+.object-item.selected {
+    background: #383838;
+}
+
+.tool-section {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.tool-section button {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+}
+
+.tool-grid button {
+    width: auto;
+}
+
+.field {
+    margin-bottom: 9px;
+}
+
+.field label {
+    display: block;
+    color: #aaa;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.field input,
+.field select {
+    width: 100%;
+    background: #101010;
+    color: white;
+    border: 1px solid #444;
+    padding: 7px;
+    border-radius: 3px;
+    touch-action: auto;
+}
+
+.xyz {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+}
+
+.xyz input {
+    min-width: 0;
+}
+
+#viewport {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+#viewport canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+#hint {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    background: rgba(0,0,0,.65);
+    border: 1px solid #444;
+    padding: 7px 9px;
+    font-size: 11px;
+    color: #bbb;
+    pointer-events: none;
+    z-index: 5;
+}
+
+#status {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    background: rgba(0,0,0,.65);
+    border: 1px solid #444;
+    padding: 7px 9px;
+    font-size: 11px;
+    color: #bbb;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.color-row {
+    display: flex;
+    gap: 5px;
+}
+
+#colorInput {
+    width: 55px;
+    height: 34px;
+    padding: 2px;
+    border: 1px solid #444;
+    background: #111;
+}
+
+#objectInfo {
+    font-size: 11px;
+    color: #777;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+#mobileControls {
+    display: none;
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    width: 150px;
+    height: 150px;
+    z-index: 15;
+    pointer-events: none;
+}
+
+.mobile-button {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid #666;
+    background: rgba(20,20,20,.8);
+    font-size: 20px;
+    pointer-events: auto;
+    touch-action: none;
+}
+
+.mobile-button:active {
+    background: #444;
+}
+
+#camUp {
+    left: 51px;
+    top: 0;
+}
+
+#camDown {
+    left: 51px;
+    bottom: 0;
+}
+
+#camLeft {
+    left: 0;
+    top: 51px;
+}
+
+#camRight {
+    right: 0;
+    top: 51px;
+}
+
+#camForward {
+    left: 51px;
+    top: 51px;
+    font-size: 14px;
+}
+
+#mobileMode {
+    display: none;
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    z-index: 15;
+    width: 110px;
+}
+
+#mobileMode button {
+    width: 100%;
+    margin-top: 4px;
+    pointer-events: auto;
+}
+
+@media(max-width:900px) {
+    #left {
+        width: 145px;
+        min-width: 145px;
+    }
+
+    #right {
+        width: 220px;
+        min-width: 220px;
+    }
+
+    #title {
+        display: none;
+    }
+}
+
+@media(max-width:700px) {
+    #left {
+        width: 120px;
+        min-width: 120px;
+    }
+
+    #right {
+        width: 190px;
+        min-width: 190px;
+    }
+
+    #topbar {
+        height: 52px;
+        min-height: 52px;
+    }
+
+    #hint {
+        display: none;
+    }
+
+    #mobileControls {
+        display: block;
+    }
+
+    #mobileMode {
+        display: block;
+    }
+}
+
+@media(max-width:520px) {
+    #left {
+        width: 105px;
+        min-width: 105px;
+    }
+
+    #right {
+        width: 175px;
+        min-width: 175px;
+    }
+
+    .panel-title {
+        padding: 8px;
+    }
+
+    .tool-section {
+        padding: 7px;
+    }
+
+    button {
+        padding: 8px 9px;
+    }
+}
+
+#helpModal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: rgba(0,0,0,.75);
+    z-index: 100000;
+}
+
+.help-modal-box {
+    position: relative;
+    width: min(700px,100%);
+    max-height: 85vh;
+    background: #181818;
+    border: 1px solid #444;
+    border-radius: 5px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.6);
+    overflow: hidden;
+}
+
+.help-modal-content {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 25px;
+    padding-top: 45px;
+    color: #ddd;
+    font-size: 13px;
+    line-height: 1.6;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.help-modal-content h2 {
+    margin-top: 0;
+    color: #fff;
+}
+
+.help-modal-close {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: #242424;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 3px;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.help-modal-close:hover {
+    background: #444;
+}
+.help-modal-content a {
+    color: #6ea8ff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.help-modal-content a:hover {
+    color: #9bc2ff;
+}
+
+.help-modal-content a:visited {
+    color: #9b8cff;
+}
+#levelTopbar {
+    position: relative;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #181818;
+    border-bottom: 1px solid #333;
+    z-index: 100;
+}
+
+.level-topbar-title {
+    font-weight: bold;
+    margin-right: auto;
+}
+
+#levelTopbar button {
+    min-height: 34px;
+    padding: 6px 10px;
+}
+
+.level-load-error {
+    grid-column: 1 / -1;
+    padding: 20px;
+    text-align: center;
+    color: #aaa;
+}
