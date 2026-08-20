@@ -1,0 +1,40 @@
+
+var scene;
+var camera;
+var renderer;
+var controls;
+var transformControls;
+var raycaster;
+var mouse;
+var selected = null;
+var selectedObjects = [];
+var selectionAnchor = null;
+var objectCounter = 0;
+var grid;
+var axes;
+var ambientLight;
+var directionalLight;
+var viewport = document.getElementById("viewport");
+var objectsElement = document.getElementById("objects");
+var statusElement = document.getElementById("status");
+var fileInput = document.getElementById("fileInput");
+var exportMenu = document.getElementById("exportMenu");
+var exportButton = document.getElementById("exportButton");
+var exportOptions = document.getElementById("exportOptions");
+var cameraKeys = {};
+var cameraMoveSpeed = 0.12;
+var cameraTarget = new THREE.Vector3(0, 0, 0);
+var transformDragging = false;
+var pointerSelecting = false;
+var transformHistoryState = null;
+var inspectorTransformHistoryState = null;
+var undoStack = [];
+var redoStack = [];
+var isRestoringHistory = false;
+
+var IDB_NAME = "Platformer3DEditorDB";
+var IDB_VERSION = 1;
+var IDB_STORE = "files";
+var IDB_RBP_KEY = "scene.rbp";
+var idbDatabasePromise = null;
+
