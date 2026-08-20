@@ -275,8 +275,11 @@ function isObjectSelected(object) {
     document.getElementById("sz").value = primary.scale.z.toFixed(3);
 
     if (primary.material && primary.material.color) {
+    	let valCol = "#" + primary.material.color.getHexString();
         document.getElementById("colorInput").value =
-            "#" + primary.material.color.getHexString();
+            valCol;
+        document.getElementById("colorText").value =
+            valCol;
     }
 
     geometrySelect.value = primary.userData.type || "box";
@@ -558,4 +561,3 @@ document.getElementById("colorInput")
 
 document.getElementById("colorText")
     .addEventListener("input", () => applyColor("text"));
- 
