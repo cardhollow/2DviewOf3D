@@ -1,12 +1,12 @@
 (function(){
 "use strict";
 
-var internalClipboard=null;
 var MAGIC_0=0x50;
 var MAGIC_1=0x4F;
 var MAGIC_2=0x42;
 var MAGIC_3=0x43;
 var VERSION=2;
+var CLIPBOARD_TYPE="web application/x-platformer-editor-objects";
 
 function BinaryWriter(){
     this.data=[];
@@ -89,22 +89,11 @@ function writeVector3(writer,v){
 }
 
 function readVector3(reader){
-    return new THREE.Vector3(
-        reader.readFloat32(),
-        reader.readFloat32(),
-        reader.readFloat32()
-    );
+    return new THREE.Vector3(reader.readFloat32(),reader.readFloat32(),reader.readFloat32());
 }
 
 function getTags(object){
     return object.userData&&Array.isArray(object.userData.tags)?object.userData.tags:[];
-}
-
-function getColor(object){
-    if(object.material&&object.material.color){
-        return object.material.color.getHex();
-    }
-    return 0xFFFFFF;
 }
 
 function getMaterialData(object){
@@ -224,7 +213,7 @@ function encodeObjects(objects){
         writer.writeFloat32(object.rotation.x);
         writer.writeFloat32(object.rotation.y);
         writer.writeFloat32(object.rotation.z);
-        writer.writeFloat32(object.rotation.order==="XYZ"?0:0);
+        writer.writeFloat32(0);
 
         writeVector3(writer,object.scale);
 
@@ -344,16 +333,27 @@ function createClipboardObject(data){
     return object;
 }
 
-function copySelectedObjects(){
+async function copySelectedObjects(){
     if(typeof selectedObjects==="undefined"||!selectedObjects.length){
+        return;
+    }
+
+    if(!navigator.clipboard||!window.ClipboardItem){
         if(typeof statusElement!=="undefined"){
-            statusElement.textContent="Nothing selected to copy";
+            statusElement.textContent="External clipboard is not supported";
         }
         return;
     }
 
     try{
-        internalClipboard=encodeObjects(selectedObjects);
+        var binary=encodeObjects(selectedObjects);
+        var blob=new Blob([binary],{type:CLIPBOARD_TYPE});
+
+        var item=new ClipboardItem({
+            [CLIPBOARD_TYPE]:blob
+        });
+
+        await navigator.clipboard.write([item]);
 
         if(typeof statusElement!=="undefined"){
             statusElement.textContent=selectedObjects.length+" object"+(selectedObjects.length===1?"":"s")+" copied";
@@ -362,29 +362,53 @@ function copySelectedObjects(){
         console.error("Copy objects error:",error);
 
         if(typeof statusElement!=="undefined"){
-            statusElement.textContent="Copy failed";
+            statusElement.textContent="External copy failed";
         }
+
+        alert("Could not copy objects:\n"+error.message);
     }
 }
 
-function pasteClipboardObjects(){
-    if(!internalClipboard){
+async function pasteClipboardObjects(){
+    if(!navigator.clipboard||!navigator.clipboard.read){
         if(typeof statusElement!=="undefined"){
-            statusElement.textContent="Nothing to paste";
+            statusElement.textContent="External clipboard is not supported";
         }
         return;
     }
 
     try{
-        var data=decodeObjects(internalClipboard);
+        var items=await navigator.clipboard.read();
+        var binary=null;
 
-        if(!data.length)return;
+        for(var i=0;i<items.length;i++){
+            var item=items[i];
+
+            if(item.types.indexOf(CLIPBOARD_TYPE)!==-1){
+                var blob=await item.getType(CLIPBOARD_TYPE);
+                binary=new Uint8Array(await blob.arrayBuffer());
+                break;
+            }
+        }
+
+        if(!binary){
+            if(typeof statusElement!=="undefined"){
+                statusElement.textContent="No editor objects in clipboard";
+            }
+            return;
+        }
+
+        var data=decodeObjects(binary);
+
+        if(!data.length){
+            return;
+        }
 
         var before=serializeScene();
         var pasted=[];
 
-        for(var i=0;i<data.length;i++){
-            var object=createClipboardObject(data[i]);
+        for(var j=0;j<data.length;j++){
+            var object=createClipboardObject(data[j]);
 
             object.position.x+=1;
             object.userData.editorObject=true;
@@ -394,7 +418,11 @@ function pasteClipboardObjects(){
             pasted.push(object);
         }
 
-        setSelectedObjects(pasted,pasted[pasted.length-1]);
+        setSelectedObjects(
+            pasted,
+            pasted[pasted.length-1]
+        );
+
         selectionAnchor=pasted[pasted.length-1];
 
         recordModification(before);
@@ -404,7 +432,9 @@ function pasteClipboardObjects(){
     }catch(error){
         console.error("Paste objects error:",error);
 
-        statusElement.textContent="Paste failed";
+        if(typeof statusElement!=="undefined"){
+            statusElement.textContent="External paste failed";
+        }
 
         alert("Could not paste objects:\n"+error.message);
     }
@@ -438,21 +468,16 @@ function handleCopyPasteKeyDown(event){
     }
 
     var hasSelection=typeof selectedObjects!=="undefined"&&selectedObjects.length>0;
-
-    if(!hasSelection){
-        return;
-    }
-
     var key=String(event.key||"").toLowerCase();
 
-    if(key==="c"){
+    if(key==="c"&&hasSelection){
         event.preventDefault();
         event.stopPropagation();
         copySelectedObjects();
         return;
     }
 
-    if(key==="v"){
+    if(key==="v"&&hasSelection){
         event.preventDefault();
         event.stopPropagation();
         pasteClipboardObjects();
@@ -462,7 +487,6 @@ function handleCopyPasteKeyDown(event){
 document.addEventListener("keydown",handleCopyPasteKeyDown,false);
 
 window.copySelectedObjects=copySelectedObjects;
-
 window.pasteClipboardObjects=pasteClipboardObjects;
 
 window.encodeSelectedObjectsBinary=function(){
